@@ -96,10 +96,16 @@ export class AmazonAdsClient {
     const ct = contentType || "application/json";
     const headers: Record<string, string> = {
       "Authorization": `Bearer ${this.accessToken}`,
-      "Content-Type": ct,
-      "Accept": ct,
       "Amazon-Advertising-API-ClientId": this.config.clientId!,
     };
+
+    // Only set Content-Type and Accept for requests with a body
+    if (body) {
+      headers["Content-Type"] = ct;
+      headers["Accept"] = ct;
+    } else {
+      headers["Accept"] = "application/json";
+    }
 
     if (profileId) {
       headers["Amazon-Advertising-API-Scope"] = profileId;
@@ -121,7 +127,12 @@ export class AmazonAdsClient {
       throw new Error(`Amazon Ads API error (${response.status}): ${error}`);
     }
 
-    return response.json();
+    // Handle empty responses (like DELETE)
+    const text = await response.text();
+    if (!text) {
+      return { success: true, campaignId: path.split("/").pop() };
+    }
+    return JSON.parse(text);
   }
 
   async getProfiles(): Promise<unknown> {
@@ -262,7 +273,7 @@ export class AmazonAdsClient {
         {
           name,
           targetingType,
-          state: "ENABLED",
+          state: "PAUSED",  // Default to PAUSED for safety - won't spend money
           budget: {
             budgetType: "DAILY",
             budget: dailyBudget,
@@ -292,6 +303,32 @@ export class AmazonAdsClient {
     if (adGroupId) {
       body.adGroupIdFilter = { include: [adGroupId] };
     }
+
+    return this.makeRequest("POST", path, profileId, body, contentType);
+  }
+
+  async archiveCampaign(
+    profileId: string,
+    campaignId: string,
+    campaignType: string
+  ): Promise<unknown> {
+    // v3 API: DELETE endpoint with campaignIdFilter in body
+    let path = "/sp/campaigns/delete";
+    let contentType = "application/vnd.spcampaign.v3+json";
+
+    if (campaignType === "sponsoredBrands") {
+      path = "/sb/v4/campaigns/delete";
+      contentType = "application/vnd.sbcampaignresource.v4+json";
+    } else if (campaignType === "sponsoredDisplay") {
+      path = "/sd/campaigns/delete";
+      contentType = "application/vnd.sdcampaign.v3+json";
+    }
+
+    const body = {
+      campaignIdFilter: {
+        include: [campaignId],
+      },
+    };
 
     return this.makeRequest("POST", path, profileId, body, contentType);
   }

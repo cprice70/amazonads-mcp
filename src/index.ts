@@ -188,6 +188,29 @@ const tools: Tool[] = [
       required: ["profileId"],
     },
   },
+  {
+    name: "archive_campaign",
+    description: "Archive a campaign. Archived campaigns cannot spend money and are hidden from default views. This is the only way to 'delete' a campaign in Amazon Ads.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        profileId: {
+          type: "string",
+          description: "The Amazon Ads profile ID",
+        },
+        campaignId: {
+          type: "string",
+          description: "The campaign ID to archive",
+        },
+        campaignType: {
+          type: "string",
+          enum: ["sponsoredProducts", "sponsoredBrands", "sponsoredDisplay"],
+          description: "Type of campaign",
+        },
+      },
+      required: ["profileId", "campaignId", "campaignType"],
+    },
+  },
 ];
 
 // Handle list_tools request
@@ -314,6 +337,22 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
             {
               type: "text",
               text: JSON.stringify(productAds, null, 2),
+            },
+          ],
+        };
+      }
+
+      case "archive_campaign": {
+        const result = await amazonAdsClient.archiveCampaign(
+          args.profileId as string,
+          args.campaignId as string,
+          args.campaignType as string
+        );
+        return {
+          content: [
+            {
+              type: "text",
+              text: JSON.stringify(result, null, 2),
             },
           ],
         };
