@@ -9,6 +9,9 @@ dist/
 .env
 .env.local
 
+# MCP Registry tokens
+.mcpregistry_*
+
 # Logs
 *.log
 npm-debug.log*
