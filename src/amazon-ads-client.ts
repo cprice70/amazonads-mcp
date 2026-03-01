@@ -87,6 +87,15 @@ export class AmazonAdsClient {
     this.tokenExpiry = Date.now() + (data.expires_in - 60) * 1000; // Refresh 1 minute before expiry
   }
 
+  private async sleep(ms: number): Promise<void> {
+    return new Promise((resolve) => setTimeout(resolve, ms));
+  }
+
+  private isRetryableError(status: number): boolean {
+    // Retry on rate limit (429) and server errors (5xx)
+    return status === 429 || (status >= 500 && status < 600);
+  }
+
   private async makeRequest(
     method: string,
     path: string,
@@ -124,19 +133,42 @@ export class AmazonAdsClient {
       options.body = JSON.stringify(body);
     }
 
-    const response = await fetch(url, options);
+    // Retry logic with exponential backoff
+    const maxRetries = 3;
+    let lastError: Error | null = null;
 
-    if (!response.ok) {
-      const error = await response.text();
-      throw new Error(`Amazon Ads API error (${response.status}): ${error}`);
+    for (let attempt = 0; attempt <= maxRetries; attempt++) {
+      const response = await fetch(url, options);
+
+      if (response.ok) {
+        // Handle empty responses (like DELETE)
+        const text = await response.text();
+        if (!text) {
+          return { success: true, campaignId: path.split("/").pop() };
+        }
+        return JSON.parse(text);
+      }
+
+      const errorText = await response.text();
+
+      // Check if we should retry
+      if (this.isRetryableError(response.status) && attempt < maxRetries) {
+        // Exponential backoff: 1s, 2s, 4s
+        const delay = Math.pow(2, attempt) * 1000;
+
+        // Check for Retry-After header
+        const retryAfter = response.headers.get("Retry-After");
+        const waitTime = retryAfter ? parseInt(retryAfter, 10) * 1000 : delay;
+
+        await this.sleep(Math.min(waitTime, 10000)); // Cap at 10 seconds
+        continue;
+      }
+
+      lastError = new Error(`Amazon Ads API error (${response.status}): ${errorText}`);
+      break;
     }
 
-    // Handle empty responses (like DELETE)
-    const text = await response.text();
-    if (!text) {
-      return { success: true, campaignId: path.split("/").pop() };
-    }
-    return JSON.parse(text);
+    throw lastError || new Error("Request failed after retries");
   }
 
   async getProfiles(): Promise<unknown> {
