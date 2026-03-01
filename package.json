@@ -9,7 +9,9 @@
     "watch": "tsc --watch",
     "start": "node build/index.js",
     "dev": "tsc && node build/index.js",
-    "get-token": "tsc && node build/get-refresh-token.js"
+    "get-token": "tsc && node build/get-refresh-token.js",
+    "test": "vitest run",
+    "test:watch": "vitest"
   },
   "keywords": [
     "mcp",
@@ -23,8 +25,9 @@
     "dotenv": "^16.4.7"
   },
   "devDependencies": {
-    "@types/node": "^22.10.2",
+    "@types/node": "^22.19.13",
     "open": "^10.2.0",
-    "typescript": "^5.7.2"
+    "typescript": "^5.7.2",
+    "vitest": "^4.0.18"
   }
 }
