@@ -1,0 +1,30 @@
+{
+  "name": "amazonads-mcp",
+  "version": "0.1.0",
+  "description": "MCP server for Amazon Ads API integration",
+  "type": "module",
+  "main": "build/index.js",
+  "scripts": {
+    "build": "tsc",
+    "watch": "tsc --watch",
+    "start": "node build/index.js",
+    "dev": "tsc && node build/index.js",
+    "get-token": "tsc && node build/get-refresh-token.js"
+  },
+  "keywords": [
+    "mcp",
+    "amazon-ads",
+    "advertising"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.0.4",
+    "dotenv": "^16.4.7"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.2",
+    "open": "^10.2.0",
+    "typescript": "^5.7.2"
+  }
+}
