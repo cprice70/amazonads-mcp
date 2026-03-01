@@ -54,7 +54,7 @@ const tools: Tool[] = [
   },
   {
     name: "get_campaign_performance",
-    description: "Get performance metrics for a specific campaign including impressions, clicks, cost, sales, and conversions.",
+    description: "Create a performance report for campaigns. Returns metrics like impressions, clicks, cost, sales. If the report takes more than 5 seconds to generate, returns a PENDING status with a reportId - use get_report to fetch the completed report.",
     inputSchema: {
       type: "object",
       properties: {
@@ -76,6 +76,24 @@ const tools: Tool[] = [
         },
       },
       required: ["profileId", "campaignId", "startDate", "endDate"],
+    },
+  },
+  {
+    name: "get_report",
+    description: "Check status and download a previously requested report. Use this after get_campaign_performance returns PENDING status.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        profileId: {
+          type: "string",
+          description: "The Amazon Ads profile ID",
+        },
+        reportId: {
+          type: "string",
+          description: "The report ID returned from get_campaign_performance",
+        },
+      },
+      required: ["profileId", "reportId"],
     },
   },
   {
@@ -258,6 +276,21 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
             {
               type: "text",
               text: JSON.stringify(performance, null, 2),
+            },
+          ],
+        };
+      }
+
+      case "get_report": {
+        const report = await amazonAdsClient.getReport(
+          args.profileId as string,
+          args.reportId as string
+        );
+        return {
+          content: [
+            {
+              type: "text",
+              text: JSON.stringify(report, null, 2),
             },
           ],
         };

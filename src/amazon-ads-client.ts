@@ -1,4 +1,8 @@
 import https from "https";
+import zlib from "zlib";
+import { promisify } from "util";
+
+const gunzip = promisify(zlib.gunzip);
 
 interface AmazonAdsConfig {
   clientId?: string;
@@ -171,7 +175,7 @@ export class AmazonAdsClient {
     startDate: string,
     endDate: string
   ): Promise<unknown> {
-    // v3 reporting API
+    // v3 reporting API - create async report
     const contentType = "application/vnd.createasyncreportrequest.v3+json";
 
     const reportBody = {
@@ -200,14 +204,100 @@ export class AmazonAdsClient {
       },
     };
 
-    // Note: This creates an async report. Production implementation should:
-    // 1. POST to /reporting/reports to create report (returns reportId)
-    // 2. Poll GET /reporting/reports/{reportId} until status is COMPLETED
-    // 3. Download report from the URL in the response
-    // The campaignId filter is not available when grouping by campaign,
-    // so the report will include all campaigns. Filter client-side if needed.
+    // Step 1: Create the report
+    const createResponse = await this.makeRequest(
+      "POST",
+      "/reporting/reports",
+      profileId,
+      reportBody,
+      contentType
+    ) as { reportId: string };
 
-    return this.makeRequest("POST", "/reporting/reports", profileId, reportBody, contentType);
+    const reportId = createResponse.reportId;
+
+    // Step 2: Poll until report is ready (max 5 seconds to stay within MCP timeout)
+    const maxAttempts = 5;
+    const pollInterval = 1000; // 1 second
+
+    for (let attempt = 0; attempt < maxAttempts; attempt++) {
+      const statusResponse = await this.makeRequest(
+        "GET",
+        `/reporting/reports/${reportId}`,
+        profileId
+      ) as { status: string; url?: string };
+
+      if (statusResponse.status === "COMPLETED" && statusResponse.url) {
+        // Step 3: Download and decompress the report
+        const reportData = await this.downloadReport(statusResponse.url);
+
+        // Filter to requested campaign if specified
+        if (campaignId && Array.isArray(reportData)) {
+          const filtered = reportData.filter(
+            (row: Record<string, unknown>) => String(row.campaignId) === campaignId
+          );
+          return filtered.length > 0 ? filtered : reportData;
+        }
+
+        return reportData;
+      }
+
+      if (statusResponse.status === "FAILURE") {
+        throw new Error(`Report generation failed for reportId: ${reportId}`);
+      }
+
+      // Wait before next poll
+      await new Promise((resolve) => setTimeout(resolve, pollInterval));
+    }
+
+    // Return pending status with reportId so user can check later
+    return {
+      status: "PENDING",
+      message: `Report still processing after ${maxAttempts * pollInterval / 1000} seconds`,
+      reportId,
+      checkUrl: `/reporting/reports/${reportId}`,
+    };
+  }
+
+  private async downloadReport(url: string): Promise<unknown> {
+    const response = await fetch(url);
+
+    if (!response.ok) {
+      throw new Error(`Failed to download report: ${response.status}`);
+    }
+
+    const buffer = await response.arrayBuffer();
+    const decompressed = await gunzip(Buffer.from(buffer));
+    return JSON.parse(decompressed.toString("utf-8"));
+  }
+
+  async getReport(profileId: string, reportId: string): Promise<unknown> {
+    const statusResponse = await this.makeRequest(
+      "GET",
+      `/reporting/reports/${reportId}`,
+      profileId
+    ) as { status: string; url?: string; failureReason?: string };
+
+    if (statusResponse.status === "COMPLETED" && statusResponse.url) {
+      const reportData = await this.downloadReport(statusResponse.url);
+      return {
+        status: "COMPLETED",
+        data: reportData,
+      };
+    }
+
+    if (statusResponse.status === "FAILURE") {
+      return {
+        status: "FAILURE",
+        reason: statusResponse.failureReason || "Unknown error",
+        reportId,
+      };
+    }
+
+    return {
+      status: statusResponse.status,
+      message: "Report still processing. Try again in a few seconds.",
+      reportId,
+    };
   }
 
   async getKeywords(
