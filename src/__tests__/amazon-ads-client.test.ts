@@ -16,7 +16,7 @@ describe("AmazonAdsClient", () => {
   beforeEach(() => {
     client = new AmazonAdsClient();
     fetchMock = vi.fn();
-    global.fetch = fetchMock;
+    global.fetch = fetchMock as unknown as typeof fetch;
   });
 
   afterEach(() => {
