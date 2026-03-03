@@ -166,7 +166,7 @@ const server = http.createServer(async (req, res) => {
   }
 });
 
-server.listen(3000, () => {
+server.listen(3000, '127.0.0.1', () => {
   console.log("✓ Callback server started\n");
   console.log("Please open the following URL in your browser to authorize:\n");
   console.log(`  ${authUrl.toString()}\n`);

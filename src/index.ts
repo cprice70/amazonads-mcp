@@ -238,6 +238,30 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
   };
 });
 
+const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+
+function validateString(value: unknown, field: string): string {
+  if (typeof value !== "string" || value.trim() === "") {
+    throw new Error(`${field} must be a non-empty string`);
+  }
+  return value;
+}
+
+function validateDate(value: unknown, field: string): string {
+  const s = validateString(value, field);
+  if (!DATE_RE.test(s)) {
+    throw new Error(`${field} must be in YYYY-MM-DD format`);
+  }
+  return s;
+}
+
+function validatePositiveNumber(value: unknown, field: string): number {
+  if (typeof value !== "number" || !Number.isFinite(value) || value <= 0) {
+    throw new Error(`${field} must be a positive finite number`);
+  }
+  return value;
+}
+
 // Handle call_tool request
 server.setRequestHandler(CallToolRequestSchema, async (request) => {
   const { name, arguments: args } = request.params;
@@ -250,7 +274,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
     switch (name) {
       case "get_campaigns": {
         const campaigns = await amazonAdsClient.getCampaigns(
-          args.profileId as string,
+          validateString(args.profileId, "profileId"),
           args.state as string | undefined,
           args.campaignType as string | undefined
         );
@@ -266,10 +290,10 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
       case "get_campaign_performance": {
         const performance = await amazonAdsClient.getCampaignPerformance(
-          args.profileId as string,
-          args.campaignId as string,
-          args.startDate as string,
-          args.endDate as string
+          validateString(args.profileId, "profileId"),
+          validateString(args.campaignId, "campaignId"),
+          validateDate(args.startDate, "startDate"),
+          validateDate(args.endDate, "endDate")
         );
         return {
           content: [
@@ -283,8 +307,8 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
       case "get_report": {
         const report = await amazonAdsClient.getReport(
-          args.profileId as string,
-          args.reportId as string
+          validateString(args.profileId, "profileId"),
+          validateString(args.reportId, "reportId")
         );
         return {
           content: [
@@ -298,7 +322,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
       case "get_keywords": {
         const keywords = await amazonAdsClient.getKeywords(
-          args.profileId as string,
+          validateString(args.profileId, "profileId"),
           args.campaignId as string | undefined,
           args.adGroupId as string | undefined
         );
@@ -314,9 +338,9 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
       case "update_keyword_bid": {
         const result = await amazonAdsClient.updateKeywordBid(
-          args.profileId as string,
-          args.keywordId as string,
-          args.bid as number
+          validateString(args.profileId, "profileId"),
+          validateString(args.keywordId, "keywordId"),
+          validatePositiveNumber(args.bid, "bid")
         );
         return {
           content: [
@@ -342,12 +366,12 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
       case "create_campaign": {
         const campaign = await amazonAdsClient.createCampaign(
-          args.profileId as string,
-          args.name as string,
+          validateString(args.profileId, "profileId"),
+          validateString(args.name, "name"),
           args.campaignType as string,
           args.targetingType as string,
-          args.dailyBudget as number,
-          args.startDate as string
+          validatePositiveNumber(args.dailyBudget, "dailyBudget"),
+          validateDate(args.startDate, "startDate")
         );
         return {
           content: [
@@ -361,7 +385,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
       case "get_product_ads": {
         const productAds = await amazonAdsClient.getProductAds(
-          args.profileId as string,
+          validateString(args.profileId, "profileId"),
           args.campaignId as string | undefined,
           args.adGroupId as string | undefined
         );
@@ -377,8 +401,8 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
       case "archive_campaign": {
         const result = await amazonAdsClient.archiveCampaign(
-          args.profileId as string,
-          args.campaignId as string,
+          validateString(args.profileId, "profileId"),
+          validateString(args.campaignId, "campaignId"),
           args.campaignType as string
         );
         return {
