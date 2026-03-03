@@ -1,6 +1,6 @@
 {
   "name": "amazonads-mcp",
-  "version": "0.1.1",
+  "version": "0.2.0",
   "mcpName": "io.github.cprice70/amazonads-mcp",
   "description": "MCP server for Amazon Ads API integration",
   "type": "module",
